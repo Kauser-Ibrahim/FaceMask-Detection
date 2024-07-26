@@ -1,6 +1,6 @@
-from tensorflow.keras.models import load_model
-import cv2
 import streamlit as st
+import cv2
+from tensorflow.keras.models import load_model
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import numpy as np
@@ -11,7 +11,9 @@ haar = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 
 
 def detect_face(img):
-    coods = haar.detectMultiScale(img)
+    coods = haar.detectMultiScale(
+        img, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30)
+    )
     return coods
 
 
@@ -23,65 +25,57 @@ def detect_face_mask(img):
 
 
 def draw_label(frame, label, position, color):
-    # Convert frame to PIL Image
     frame_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-
-    # Create a drawing context
     draw = ImageDraw.Draw(frame_pil)
-
     try:
-        font = ImageFont.truetype("arial.ttf", 40)  # Adjust the size as needed
+        font = ImageFont.truetype("arial.ttf", 40)
     except IOError:
         font = ImageFont.load_default()
-
-    # Define font and draw text
     draw.text(position, label, font=font, fill=color)
-
     return frame_pil
 
 
-# Initialize video capture
-cap = cv2.VideoCapture(0)
+# Streamlit app
 st.title("Face Mask Detection")
 
-if "stop_button" not in st.session_state:
-    st.session_state.stop_button = False
+# Start video capture
+cap = cv2.VideoCapture(0)
 
+if not cap.isOpened():
+    st.error("Failed to open video capture device")
+else:
+    frame_placeholder = st.empty()
+    stop_button = st.button("Stop")
 
-def toggle_stop():
-    st.session_state.stop_button = not st.session_state.stop_button
+    while True:
+        if stop_button:
+            break
 
+        ret, frame = cap.read()
+        if not ret:
+            st.write("Failed to capture image")
+            break
 
-stop_button = st.button("Stop", key="stop_but", on_click=toggle_stop)
-frame_placeholder = st.empty()
+        img = cv2.resize(frame, (224, 224))
+        y_pred = detect_face_mask(img)
 
-while not st.session_state.stop_button:
-    ret, frame = cap.read()
-    if not ret:
-        st.write("Failed to capture image")
-        break
+        # Detect faces and draw rectangles
+        coods = detect_face(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
+        for x, y, w, h in coods:
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 3)
 
-    img = cv2.resize(frame, (224, 224))
-    y_pred = detect_face_mask(img)
+        # Draw mask or no mask label
+        if y_pred == 0:
+            frame_pil = draw_label(frame, "Mask", (30, 30), (0, 255, 0))
+        else:
+            frame_pil = draw_label(frame, "No Mask", (30, 30), (255, 0, 0))
 
-    # Detect faces and draw rectangles
-    coods = detect_face(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
-    for x, y, w, h in coods:
-        cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 3)
+        # Convert the frame to RGB for Streamlit
+        buf = BytesIO()
+        frame_pil.save(buf, format="JPEG")
+        byte_img = buf.getvalue()
 
-    # Draw mask or no mask label
-    if y_pred == 0:
-        frame_pil = draw_label(frame, "Mask", (30, 30), (0, 255, 0))
-    else:
-        frame_pil = draw_label(frame, "No Mask", (30, 30), (255, 0, 0))
+        # Update the Streamlit placeholder with the new image
+        frame_placeholder.image(byte_img, use_column_width=True)
 
-    # Convert the frame to RGB for Streamlit
-    buf = BytesIO()
-    frame_pil.save(buf, format="JPEG")
-    byte_img = buf.getvalue()
-
-    # Update the Streamlit placeholder with the new image
-    frame_placeholder.image(byte_img, use_column_width=True)
-
-# Release resources
-cap.release()
+    cap.release()
