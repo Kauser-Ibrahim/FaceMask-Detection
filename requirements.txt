@@ -1,6 +1,5 @@
 streamlit
 tensorflow
 tensorflow-hub
-opencv-python
 opencv-python-headless
 
