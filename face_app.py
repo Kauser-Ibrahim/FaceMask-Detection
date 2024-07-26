@@ -84,4 +84,3 @@ while not st.session_state.stop_button:
 
 # Release resources and close windows
 cap.release()
-cv2.destroyAllWindows()
