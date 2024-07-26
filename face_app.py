@@ -9,20 +9,15 @@ import numpy as np
 model = load_model("mobileNetV2_50data.h5")
 haar = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 
-
 def detect_face(img):
-    coods = haar.detectMultiScale(
-        img, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30)
-    )
+    coods = haar.detectMultiScale(img, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
     return coods
-
 
 def detect_face_mask(img):
     img = cv2.resize(img, (224, 224)) / 255.0
     y_pred = model.predict(img.reshape(1, 224, 224, 3), verbose=False)
     prediction = (y_pred > 0.5).astype(int)
     return int(prediction[0][0])
-
 
 def draw_label(frame, label, position, color):
     frame_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
@@ -33,7 +28,6 @@ def draw_label(frame, label, position, color):
         font = ImageFont.load_default()
     draw.text(position, label, font=font, fill=color)
     return frame_pil
-
 
 # Streamlit app
 st.title("Face Mask Detection")
@@ -50,7 +44,7 @@ else:
     while True:
         if stop_button:
             break
-
+        
         ret, frame = cap.read()
         if not ret:
             st.write("Failed to capture image")
@@ -77,5 +71,5 @@ else:
 
         # Update the Streamlit placeholder with the new image
         frame_placeholder.image(byte_img, use_column_width=True)
-
+    
     cap.release()
